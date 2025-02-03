@@ -276,7 +276,44 @@ module catstruct_gear(nx, ny, h) {
 // ------------------------------------------------
 
 module catstruct_servo_plate(nx, ny, h, flange_thickness) {
+
+  edge_to_servo_shaft = 10.4; // for interest -- this still matters.
+  hole_spacing = 10;
+  hole_size = 3;
+
+  difference() {
+    prism_ended_bar(8, d=spacing, length=spacing*2, h=h,chamfer=_chamfer(h));
+
+    // holes
+    //#for(x=[-hole_spacing/2,hole_spacing/2])
+    //translate([x,0,0])
+    prism_ended_bar(n=8,d=2.5,length=spacing*1.5,h=h);
+  }
+
+  rotate([90,0,90])
+  difference() {
+    prism_ended_bar(8, d=spacing, length=spacing*4, h=h,chamfer=_chamfer(h));
+    prism_ended_bar(n=8,d=2.5,length=spacing*3.5,h=h);
+  }
+  
+  //bar([spacing,spacing/2,spacing*2],chamfer=_chamfer(h));
+
 }
+
+module chamfer_prism(chamfer=undef, length=undef) {
+  assert(chamfer != undef);
+  assert(length != undef);
+
+  rotate([0,90,0])
+    linear_extrude(height=length, center=true)  // Extrude along X-axis, centered
+      polygon(points=[
+		      [0, 0],   // Right-angle corner (bottom-left)
+		      [chamfer, 0],   // Bottom-right
+		      [0, chamfer]    // Top-left
+		      ]);
+}
+
+
 
 module catstruct_servo_plate_old_and_busted(nx, ny, h, flange_thickness) {
 
@@ -791,20 +828,67 @@ function _render_feature(cell) =
 // Utility
 // ------------------------------------------------
 
-module bar(size) {
-  // XXXX shoudl support chamfers.  Then we wouldn't be hacking prism(n=4) so much.
-  cube(size=size,center=true);
+module bar(size,chamfer=0,chamfer_axes=[1,1,1]) {
+  assert(chamfer>=0,"Negative chamfers not supported on bars yet.");
+  difference() {
+    cube(size=size,center=true);
+    if (chamfer>0)
+      bar_chamfers(size,chamfer,chamfer_axes);
+  }
 }
 
+module bar_chamfers(size,chamfer,chamfer_axes) {
+  x=size[0]; y=size[1]; z=size[2];
+  if(chamfer_axes[0]==1) {
+    translate([0,-y/2, z/2])            chamfer_prism(chamfer,x);
+    translate([0, y/2, z/2]) mirrorY()  chamfer_prism(chamfer,x);
+    translate([0,-y/2,-z/2]) mirrorZ()  chamfer_prism(chamfer,x);
+    translate([0, y/2,-z/2]) mirrorYZ() chamfer_prism(chamfer,x);
+  }
+  if(chamfer_axes[1]==1) {
+    translate([ x/2, 0, z/2])            rotate([0,0,90]) chamfer_prism(chamfer,y);
+    translate([-x/2, 0, z/2]) mirrorX()  rotate([0,0,90]) chamfer_prism(chamfer,y);
+    translate([ x/2, 0,-z/2]) mirrorZ()  rotate([0,0,90]) chamfer_prism(chamfer,y);
+    translate([-x/2, 0,-z/2]) mirrorXZ() rotate([0,0,90]) chamfer_prism(chamfer,y);
+  }
+  if(chamfer_axes[1]==1) {
+    translate([ x/2,-y/2, 0])            rotate([0,90,0]) chamfer_prism(chamfer,z);
+    translate([-x/2,-y/2, 0]) mirrorX()  rotate([0,90,0]) chamfer_prism(chamfer,z);
+    translate([ x/2, y/2, 0]) mirrorY()  rotate([0,90,0]) chamfer_prism(chamfer,z);
+    translate([-x/2, y/2, 0]) mirrorXY() rotate([0,90,0]) chamfer_prism(chamfer,z);
+  }
+}
+
+module mirrorX() {mirror([1,0,0]) children();}
+module mirrorY() {mirror([0,1,0]) children();}
+module mirrorZ() {mirror([0,0,1]) children();}
+
+module mirrorXY() {mirror([1,0,0]) mirror([0,1,0]) children();}
+module mirrorXZ() {mirror([1,0,0]) mirror([0,0,1]) children();}
+
+module mirrorYZ() {mirror([0,1,0]) mirror([0,0,1]) children();}
 
 module prism_ended_bar(n,d,length,h,chamfer=0) {
   _length = length-d;
   translate([-_length/2,0,0])
     prism(n=n,d=d,h=h,chamfer=chamfer);
   // XXX chamfers on the bar???
-  bar([_length,d,h]);
+  bar([_length,d,h],chamfer=chamfer,chamfer_axes=[1,0,0]);
   translate([_length/2,0,0])
     prism(n=n,d=d,h=h,chamfer=chamfer);
+}
+
+module chamfer_prism(chamfer=undef, length=undef) {
+  assert(chamfer != undef);
+  assert(length != undef);
+
+  rotate([0,90,0])
+    linear_extrude(height=length, center=true)  // Extrude along X-axis, centered
+      polygon(points=[
+		      [0, 0],   // Right-angle corner (bottom-left)
+		      [chamfer, 0],   // Bottom-right
+		      [0, chamfer]    // Top-left
+		      ]);
 }
 
 
